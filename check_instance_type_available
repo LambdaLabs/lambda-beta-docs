@@ -1,0 +1,42 @@
+#!/bin/bash
+# 
+# Check if a Lambda GPU Cloud instance type is available.
+# 
+# **Warning** This script doesn't do much input validation or error handling,
+# and hasn't been tested much. Use at your own risk.
+# 
+# Usage: ./check_instance_type_available TYPE COUNT
+# 
+# TYPE is the instance type you want to check if is available. For example:
+#   - gpu_8x_a100
+# 
+# COUNT is the number of times you want to check if TYPE is available.
+# 
+# exit 0 if TYPE is available
+# exit 1 if TYPE is unavailable
+# 
+
+set -e
+
+instance_type="$1"
+count="$2"
+
+echo "Checking $count times if instance type $instance_type is available."
+
+for i in $(seq $count); do
+  echo "Check $i of $count."
+
+  instance_type_available="$(curl --silent --user $CLOUD_API_KEY: https://cloud.lambdalabs.com/api/v1/instance-types \
+    |jq ".data.$instance_type.regions_with_capacity_available != []")"
+
+  if [[ "$instance_type_available" == "true" ]]; then
+    echo "Instance type $instance_type is available."
+    exit 0
+
+  elif [[ "$instance_type_available" == "false" && "$i" == "$count" ]]; then
+    echo "Instance type isn't available after $count checks. Stopping."
+    exit 1
+  fi
+
+  echo "Instance type isn't available. Checking again."
+done
